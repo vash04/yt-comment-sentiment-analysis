@@ -1,4 +1,4 @@
 [core]
     remote = myremote
 ['remote "myremote"']
-    url = C:\Users\TransOrg\AppData\Local\Temp
+    url = s3://sarvesh-mlflow-bucket
