@@ -53,15 +53,20 @@ def preprocess_comment(comment):
 # Load the model and vectorizer from the model registry and local storage
 def load_model_and_vectorizer(model_name, model_version, vectorizer_path):
     # Set MLflow tracking URI to your server
-    mlflow.set_tracking_uri("http://32.192.188.1:5000") 
+    mlflow.set_tracking_uri("http://32.192.188.1:5000")  
     client = MlflowClient()
     model_uri = f"models:/{model_name}/{model_version}"
     model = mlflow.pyfunc.load_model(model_uri)
-    vectorizer = joblib.load(vectorizer_path)  # Load the vectorizer
+    vectorizer = joblib.load(vectorizer_path) 
     return model, vectorizer
 
 # Initialize the model and vectorizer
-model, vectorizer = load_model_and_vectorizer("yt_chrome_plugin_model", "5", "./tfidf_vectorizer.pkl")  # Update paths and versions as needed
+model, vectorizer = load_model_and_vectorizer(
+    "yt_chrome_plugin_model",
+    "5",
+    "./tfidf_vectorizer.pkl"
+)
+
 
 @app.route('/')
 def home():
@@ -69,6 +74,11 @@ def home():
 
 @app.route('/predict_with_timestamps', methods=['POST'])
 def predict_with_timestamps():
+
+    print("=" * 50)
+    print("PREDICT_WITH_TIMESTAMPS ROUTE HIT")
+    print("=" * 50)
+
     data = request.json
     comments_data = data.get('comments')
     
@@ -79,26 +89,60 @@ def predict_with_timestamps():
         comments = [item['text'] for item in comments_data]
         timestamps = [item['timestamp'] for item in comments_data]
 
-        # Preprocess each comment before vectorizing
         preprocessed_comments = [preprocess_comment(comment) for comment in comments]
-        
-        # Transform comments using the vectorizer
+
+        print("STEP 1")
+
         transformed_comments = vectorizer.transform(preprocessed_comments)
+
+        print("STEP 2")
+
+        feature_names = vectorizer.get_feature_names_out()
+
+        print(len(feature_names))
+
+        df = pd.DataFrame(
+        transformed_comments.toarray(),
+        columns=feature_names)
         
-        # Make predictions
-        predictions = model.predict(transformed_comments).tolist()  # Convert to list
-        
-        # Convert predictions to strings for consistency
+        print(df.dtypes.head())
+
+        print("STEP 3")
+        print(type(df))
+        print(df.shape)
+        print(df.columns[:5])
+
+        print("STEP 4")
+        print(type(model))
+
+        predictions = model.predict(df).tolist()
+
         predictions = [str(pred) for pred in predictions]
+
+        response = [
+            {
+                "comment": comment,
+                "sentiment": sentiment,
+                "timestamp": timestamp
+            }
+            for comment, sentiment, timestamp in zip(comments, predictions, timestamps)
+        ]
+
+        return jsonify(response)
+
+
     except Exception as e:
-        return jsonify({"error": f"Prediction failed: {str(e)}"}), 500
-    
-    # Return the response with original comments, predicted sentiments, and timestamps
-    response = [{"comment": comment, "sentiment": sentiment, "timestamp": timestamp} for comment, sentiment, timestamp in zip(comments, predictions, timestamps)]
-    return jsonify(response)
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": str(e)}), 500
 
 @app.route('/predict', methods=['POST'])
 def predict():
+
+    print("=" * 50)
+    print("PREDICT ROUTE HIT")
+    print("=" * 50)
+
     data = request.json
     comments = data.get('comments')
     
@@ -112,8 +156,14 @@ def predict():
         # Transform comments using the vectorizer
         transformed_comments = vectorizer.transform(preprocessed_comments)
         
-        # Make predictions
-        predictions = model.predict(transformed_comments).tolist()  # Convert to list
+        feature_names = vectorizer.get_feature_names_out()
+
+        df = pd.DataFrame.sparse.from_spmatrix(
+        transformed_comments,
+        columns=feature_names
+        )
+
+        predictions = model.predict(df).tolist()
         
         # Convert predictions to strings for consistency
         predictions = [str(pred) for pred in predictions]
