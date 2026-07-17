@@ -54,11 +54,23 @@ def preprocess_comment(comment):
 # Load the model and vectorizer from the model registry and local storage
 def load_model_and_vectorizer(model_name, model_version, vectorizer_path):
     # Set MLflow tracking URI to your server
-    mlflow.set_tracking_uri("http://32.192.188.1:5000")  
+    mlflow.set_tracking_uri("http://32.192.188.1:5000")
     client = MlflowClient()
     model_uri = f"models:/{model_name}/{model_version}"
+
     model = mlflow.pyfunc.load_model(model_uri)
-    vectorizer = joblib.load(vectorizer_path) 
+
+    # ADD THESE LINES HERE
+    print("Loaded model URI:", model_uri)
+    print("Model metadata:")
+    print(model.metadata.signature)
+
+    vectorizer = joblib.load(vectorizer_path)
+
+    print("Vectorizer vocabulary size:", len(vectorizer.get_feature_names_out()))
+    print("First 20 vectorizer features:")
+    print(vectorizer.get_feature_names_out()[:20])
+
     return model, vectorizer
 
 # Initialize the model and vectorizer
@@ -170,6 +182,9 @@ def predict():
 
         print("DataFrame shape:", df.shape)
         print("Model type:", type(model))
+
+        print("First 20 DataFrame columns:")
+        print(df.columns[:20].tolist())
 
         predictions = model.predict(df)
 
