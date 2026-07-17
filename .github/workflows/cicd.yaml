@@ -121,6 +121,6 @@ jobs:
 
       - name: Show Flask Logs
         if: always()
-          run: |
-            echo "========== FLASK LOG =========="
-            cat flask.log
+        run: |
+          echo "========== FLASK LOG =========="
+          cat flask.log
