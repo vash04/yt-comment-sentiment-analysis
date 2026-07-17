@@ -52,15 +52,30 @@ def preprocess_comment(comment):
         return comment
 
 # Load the model and vectorizer from the model registry and local storage
-def load_model_and_vectorizer(model_name, model_version, vectorizer_path):
-    # Set MLflow tracking URI to your server
+from mlflow import MlflowClient
+import mlflow
+import joblib
+
+
+def load_model_and_vectorizer(model_name, vectorizer_path):
     mlflow.set_tracking_uri("http://32.192.188.1:5000")
     client = MlflowClient()
-    model_uri = f"models:/{model_name}/{model_version}"
+
+    # Get latest version of the registered model
+    latest_versions = client.get_latest_versions(model_name)
+
+    if not latest_versions:
+        raise Exception(f"No versions found for model '{model_name}'")
+
+    # Pick the highest version
+    latest_version = max(latest_versions, key=lambda x: int(x.version))
+
+    print(f"Loading model version: {latest_version.version}")
+
+    model_uri = f"models:/{model_name}/{latest_version.version}"
 
     model = mlflow.pyfunc.load_model(model_uri)
 
-    # ADD THESE LINES HERE
     print("Loaded model URI:", model_uri)
     print("Model metadata:")
     print(model.metadata.signature)
