@@ -17,6 +17,7 @@ from nltk.corpus import stopwords
 from nltk.stem import WordNetLemmatizer
 from mlflow.tracking import MlflowClient
 import matplotlib.dates as mdates
+import traceback
 
 app = Flask(__name__)
 CORS(app)  # Enable CORS for all routes
@@ -145,33 +146,60 @@ def predict():
 
     data = request.json
     comments = data.get('comments')
-    
+
     if not comments:
         return jsonify({"error": "No comments provided"}), 400
 
     try:
         # Preprocess each comment before vectorizing
         preprocessed_comments = [preprocess_comment(comment) for comment in comments]
-        
+
+        print("Preprocessed comments:", preprocessed_comments)
+
         # Transform comments using the vectorizer
         transformed_comments = vectorizer.transform(preprocessed_comments)
-        
+
+        print("Vectorizer transform successful")
+
         feature_names = vectorizer.get_feature_names_out()
 
         df = pd.DataFrame.sparse.from_spmatrix(
-        transformed_comments,
-        columns=feature_names
+            transformed_comments,
+            columns=feature_names
         )
 
-        predictions = model.predict(df).tolist()
-        
+        print("DataFrame shape:", df.shape)
+        print("Model type:", type(model))
+
+        predictions = model.predict(df)
+
+        print("Raw predictions:", predictions)
+
+        predictions = predictions.tolist()
+
         # Convert predictions to strings for consistency
         predictions = [str(pred) for pred in predictions]
+
     except Exception as e:
-        return jsonify({"error": f"Prediction failed: {str(e)}"}), 500
-    
-    # Return the response with original comments and predicted sentiments
-    response = [{"comment": comment, "sentiment": sentiment} for comment, sentiment in zip(comments, predictions)]
+        print("=" * 60)
+        print("ERROR IN /predict ENDPOINT")
+        print("=" * 60)
+        traceback.print_exc()
+        print(f"Exception: {e}")
+        print("=" * 60)
+
+        return jsonify({
+            "error": f"Prediction failed: {str(e)}"
+        }), 500
+
+    response = [
+        {
+            "comment": comment,
+            "sentiment": sentiment
+        }
+        for comment, sentiment in zip(comments, predictions)
+    ]
+
     return jsonify(response)
 
 @app.route('/generate_chart', methods=['POST'])
