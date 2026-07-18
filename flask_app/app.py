@@ -178,10 +178,13 @@ def predict():
 
         feature_names = vectorizer.get_feature_names_out()
 
-        df = pd.DataFrame.sparse.from_spmatrix(
-            transformed_comments,
-            columns=feature_names
-        )
+        df = pd.DataFrame(
+                            transformed_comments.toarray(),
+                            columns=feature_names,
+                            dtype=float
+                        )
+
+        print(df.dtypes.head())
 
         print("DataFrame shape:", df.shape)
         print("Model type:", type(model))

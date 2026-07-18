@@ -104,10 +104,10 @@ def log_confusion_matrix(cm, dataset_name):
 
 def save_model_info(run_id: str, model_path: str, file_path: str):
     try:
-        model_info = {
-            "run_id": run_id,
-            "model_path": model_path
-        }
+        model_info = {"run_id": run_id,
+                    "model_path": model_path,
+                    "vectorizer_path": "tfidf_vectorizer.pkl"
+}
 
         with open(file_path, "w") as file:
             json.dump(model_info, file, indent=4)
