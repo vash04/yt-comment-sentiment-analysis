@@ -339,12 +339,20 @@ def generate_trend_graph():
     try:
         data = request.get_json()
         sentiment_data = data.get('sentiment_data')
+        print("=" * 50)
+        print("TREND GRAPH API HIT")
+        print("Total Records:", len(sentiment_data))
+        print("First 5 Records:")
+        print(sentiment_data[:5])
 
         if not sentiment_data:
             return jsonify({"error": "No sentiment data provided"}), 400
 
         # Convert sentiment_data to DataFrame
         df = pd.DataFrame(sentiment_data)
+        print("DataFrame:")
+        print(df.head())
+        print(df.dtypes)
         df['timestamp'] = pd.to_datetime(df['timestamp'])
 
         # Set the timestamp as the index
@@ -364,6 +372,8 @@ def generate_trend_graph():
 
         # Calculate percentages
         monthly_percentages = (monthly_counts.T / monthly_totals).T * 100
+        print("Monthly Percentages:")
+        print(monthly_percentages)
 
         # Ensure all sentiment columns are present
         for sentiment_value in [-1, 0, 1]:
