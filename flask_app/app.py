@@ -18,6 +18,7 @@ from nltk.stem import WordNetLemmatizer
 from mlflow.tracking import MlflowClient
 import matplotlib.dates as mdates
 import traceback
+from mlflow.artifacts import download_artifacts
 
 app = Flask(__name__)
 CORS(app)  # Enable CORS for all routes
@@ -70,17 +71,39 @@ def load_model_and_vectorizer(model_name, vectorizer_path):
 
     print(f"Loading model version: {latest_version.version}")
 
+    print(f"Loading model version: {latest_version.version}")
+    print(f"Run ID: {latest_version.run_id}")
+
     model_uri = f"models:/{model_name}/{latest_version.version}"
 
     model = mlflow.pyfunc.load_model(model_uri)
-    vectorizer = joblib.load(vectorizer_path)
+
+    artifact_path = download_artifacts(
+        artifact_uri=f"runs:/{latest_version.run_id}/tfidf_vectorizer.pkl"
+    )
+
+    print("MLflow Vectorizer Path:", artifact_path)
+
+    
+    vectorizer = joblib.load(artifact_path)
+
+    print("=" * 60)
+    print("MODEL SIGNATURE")
+    print(model.metadata.signature)
+
+    print("=" * 60)
+    print("LOCAL VECTORIZER")
+    print("Total Features:", len(vectorizer.get_feature_names_out()))
+    print("First 20 Features:")
+    print(vectorizer.get_feature_names_out()[:20])
+    print("=" * 60)
 
     return model, vectorizer
 
 # Initialize the model and vectorizer
 model, vectorizer = load_model_and_vectorizer(
-    "yt_chrome_plugin_model",
-    "./tfidf_vectorizer.pkl"
+        "yt_chrome_plugin_model",
+        "./tfidf_vectorizer.pkl"
 )
 
 
@@ -97,7 +120,7 @@ def predict_with_timestamps():
 
     data = request.json
     comments_data = data.get('comments')
-    
+
     if not comments_data:
         return jsonify({"error": "No comments provided"}), 400
 
@@ -105,7 +128,9 @@ def predict_with_timestamps():
         comments = [item['text'] for item in comments_data]
         timestamps = [item['timestamp'] for item in comments_data]
 
-        preprocessed_comments = [preprocess_comment(comment) for comment in comments]
+        preprocessed_comments = [
+            preprocess_comment(comment) for comment in comments
+        ]
 
         print("STEP 1")
 
@@ -115,37 +140,42 @@ def predict_with_timestamps():
 
         feature_names = vectorizer.get_feature_names_out()
 
-        print(len(feature_names))
+        print("Total Features:", len(feature_names))
 
         df = pd.DataFrame(
-        transformed_comments.toarray(),
-        columns=feature_names)
-        
-        print(df.dtypes.head())
+            transformed_comments.toarray(),
+            columns=feature_names
+        )
 
         print("STEP 3")
-        print(type(df))
-        print(df.shape)
-        print(df.columns[:5])
+        print("DF Shape:", df.shape)
+        print("Columns:", len(df.columns))
+        print("Missing Columns:", df.columns.isnull().sum())
+        print("Duplicate Columns:", df.columns.duplicated().sum())
 
         print("STEP 4")
         print(type(model))
+        print("Model Signature Exists:", model.metadata.signature is not None)
+        print("About to call model.predict()")
 
-        predictions = model.predict(df).tolist()
+        predictions = model.predict(df)
 
-        predictions = [str(pred) for pred in predictions]
+        predictions = predictions.tolist()
 
         response = [
             {
                 "comment": comment,
-                "sentiment": sentiment,
-                "timestamp": timestamp
+                "timestamp": timestamp,
+                "sentiment": int(pred)
             }
-            for comment, sentiment, timestamp in zip(comments, predictions, timestamps)
+            for comment, timestamp, pred in zip(
+                comments,
+                timestamps,
+                predictions
+            )
         ]
 
         return jsonify(response)
-
 
     except Exception as e:
         import traceback
